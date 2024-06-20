@@ -40,30 +40,31 @@ local function cutPath(path)
     return filename 
 end
 
-local function makeArg()
-    print ([[
-    [
-        {
-            "arguments": {
-                "/usr/bin/c++",
-                "-c",
-                "-Wall",
-                "-Wextra",
-                "-Werror",
-                "-std=c++98",
-                "-I./include", 
-                "-o",
-                "build/request.o",
-                "src/request.cpp",
-            },
-            "directory": "cwd",
-            "file\": "path/to/src/file.cpp",
-            "output": "path/to/build/file.o"
-        }
-    ]"]])
+local function makeArg(filename, cwd, src_dir, obj_dir)
+    local ret = 
+[[ 
+	{
+		"arguments": [
+			"/usr/bin/c++",
+			"-c",
+			"-Wall",
+			"-Wextra",
+			"-Werror",
+			"-std=c++98",
+			"-I./include/", 
+			"-o",
+			"build/]]..filename..[[.o",
+			"src/]]..filename..[[.cpp"
+		],
+		"directory": "]]..changeLastChar(cwd, "")..[[",
+		"file": "]]..cwd..src_dir.."/"..filename..[[.cpp",
+		"output":"]]..cwd..obj_dir.."/"..filename..[[.o"
+	}
+]]
+	return ret
 end
 
--- Get context
+--[[Get context
 print("Enter src dir:")
 local src_path = io.read()
 print("Enter build dir:")
@@ -74,6 +75,20 @@ print("Enter compiler:")
 local compiler = io.read()
 print("Enter compile flags:")
 local c_flags = io.read()
+--]]
+
+local src_path = "src"
+local obj_path = "build"
+local inc_path = "include"
+local compiler = "c++"
+local c_flags = "-Wall -Wextra -Werror"
+print([=[
+Running default mode :
+src_path -> src/
+obj_path -> build/
+compiler -> c++
+c_flags -> -Wall -Wextra -Werror
+]=])
 
 local handle = io.popen("pwd")
 local cwd = handle:read("*a")
@@ -89,14 +104,9 @@ if not getExitStatus(handle) then
    print("Error finding sources")
    return
 end
-
 for i, current in ipairs(src_list) do
     src_list[i] = cutPath(current)
 end
-for i, current in ipairs(src_list) do
-    print(current)
-end
-
 --local command = findFiles(obj_path, "o")
 --local handle = io.popen(command)
 --local obj_list = handle:read("*a")
@@ -108,16 +118,20 @@ local obj_list = {}
 for i, src_list in ipairs(src_list) do
     table.insert(obj_list, changeExt(src_list, "cpp" , "o"))
 end
-for i, obj_list in ipairs(obj_list) do
-    print(obj_list)
-end
 
-local filepath = changeLastChar(cwd, '/').. "compile_commands.json"
+local cwd = changeLastChar(cwd, '/')
+local filepath = cwd .. "compile_commands.json"
 local outfile = io.open("compile_commands.json", "w")
 if not outfile then
     print("Could not open the file for writing!")
     return
 end
-makeArg()
+outfile:write("[");
+for i, current in ipairs(obj_list) do
+	outfile:write(makeArg(changeExt(current,".o", ""), cwd, src_path, obj_path))
+end
+outfile:write("]\n");
+outfile.close()
 print("CC created succesfully")
+return 0
 
